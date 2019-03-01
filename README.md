@@ -2,7 +2,7 @@
 
 EasyJSON is a class created to help simplify the JSON process.
 No need to create new Objects for each item you want to add.
-Simply use: *foo.putPrimitive(value)* or *foo.putPrimitive(key, value)* or *foo.putArray(key, values...)* or *foo.putStructure("key")*.
+Simply use: `foo.putPrimitive(value)` or `foo.putPrimitive(key, value)` or `foo.putArray(key, values...)` or `foo.putStructure("key")`.
 You can also add items inline.
 
 **Example**
