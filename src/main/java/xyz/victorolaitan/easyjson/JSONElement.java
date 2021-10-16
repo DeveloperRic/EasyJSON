@@ -1,217 +1,165 @@
 package xyz.victorolaitan.easyjson;
 
-import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
-public class JSONElement<V> implements Iterable<JSONElement> {
-    private EasyJSON easyJSONStructure;
-    private JSONElement parent;
-    private JSONElementType type;
-    private ArrayList<JSONElement> children = new ArrayList<>();
-    private String key;
-    private V value;
+/**
+ * JSONElement is a representation of a node in the JSON structure<br/>
+ * It can have multiple children of different types, but it only has one parent.
+ */
+public interface JSONElement extends Iterable<JSONElement> {
+    EasyJSON getEasyJSONStructure();
 
-    JSONElement(EasyJSON easyJSONStructure, JSONElement parent, JSONElementType type, String key, V value) {
-        this.easyJSONStructure = easyJSONStructure;
-        this.parent = parent;
-        this.type = type;
-        this.key = key;
-        this.value = value;
-    }
+    JSONElement getParent();
 
-    public EasyJSON getEasyJSONStructure() {
-        return easyJSONStructure;
-    }
+    /**
+     * Sets `easyJSONStructure` & `parent` fields to the values provided.
+     * BE VERY CAREFUL USING THIS METHOD
+     */
+    void mutateAncestry(EasyJSON easyJSONStructure, JSONElement parent);
 
-    public JSONElement getParent() {
-        return parent;
-    }
+    JSONElementType getType();
 
-    public JSONElementType getType() {
-        return type;
-    }
+    void setType(SafeJSONElementType type);
 
-    public ArrayList<JSONElement> getChildren() {
-        return children;
-    }
+    List<JSONElement> getChildren();
 
-    public String getKey() {
-        return key;
-    }
+    String getKey();
 
-    public V getValue() {
-        return value;
-    }
+    void setKey(String key);
 
-    public <T> JSONElement putElement(JSONElement<T> jsonElement) {
-        return putElement(jsonElement.key, jsonElement);
-    }
+    Object getValue();
 
-    public <T> JSONElement putElement(String key, JSONElement<T> jsonElement) {
-        switch (jsonElement.type) {
-            case PRIMITIVE:
-                return putPrimitive(key, jsonElement);
-            case ARRAY:
-                return putArray(key, jsonElement);
-            case STRUCTURE:
-                return putStructure(key, jsonElement);
-            case ROOT:
-                return putStructure(null, jsonElement);
-        }
-        return null;
-    }
+    void setValue(Object value);
 
-    public <T> JSONElement putPrimitive(T value) {
-        JSONElement element;
-        if (value instanceof JSONElement) {
-            element = (JSONElement) value;
-            element.parent = this;
-        } else {
-            element = new JSONElement<T>(easyJSONStructure, this, JSONElementType.PRIMITIVE, null, value);
-        }
-        children.add(element);
-        return element;
-    }
+    /**
+     * Adds pre-existing nodes to this node
+     *
+     * @param elements nodes to add
+     */
+    void putElement(JSONElement... elements);
 
-    public <T> JSONElement putPrimitive(String key, T value) {
-        JSONElement search = search(key);
-        if (search == null) {
-            JSONElement element;
-            if (value instanceof JSONElement) {
-                element = (JSONElement) value;
-                element.easyJSONStructure = easyJSONStructure;
-                element.parent = this;
-            } else {
-                element = new JSONElement<T>(easyJSONStructure, this, JSONElementType.PRIMITIVE, key, value);
-            }
-            children.add(element);
-            return element;
-        } else {
-            search.value = value;
-            return search;
-        }
-    }
+    /**
+     * Add pre-existing nodes to this node
+     *
+     * @param key         string key to use if the node to be added supports it
+     * @param jsonElement node to be added
+     * @return the new node added (or null if the node has a bad structure)
+     */
+    JSONElement putElement(String key, JSONElement jsonElement);
 
-    public JSONElement putStructure(String key) {
-        JSONElement element = search(key);
-        if (element == null) {
-            element = new JSONElement<Void>(easyJSONStructure, this, JSONElementType.STRUCTURE, key, null);
-            children.add(element);
-        } else {
-            throw new RuntimeException("EasyJSON: An element aready exists with that key!");
-        }
-        return element;
-    }
+    /**
+     * Adds an element with a primitive value to this node
+     *
+     * @param value object to add
+     * @return new element added
+     */
+    JSONElement putPrimitive(Object value);
 
-    public JSONElement putStructure(String key, EasyJSON easyJSON) {
-        easyJSON.getRootNode().easyJSONStructure = easyJSONStructure;
-        easyJSON.getRootNode().parent = this;
-        return putStructure(key, easyJSON.getRootNode());
-    }
+    /**
+     * Adds an element with a string key and primitive value
+     *
+     * @param key   string identifier
+     * @param value object to add
+     * @return new element added
+     */
+    JSONElement putPrimitive(String key, Object value);
 
-    public JSONElement putStructure(String key, JSONElement structure) {
-        JSONElement searchResult = search(key);
-        if (searchResult == null) {
-            structure.type = JSONElementType.STRUCTURE;
-            structure.key = key;
-            claimElement(structure);
-            return structure;
-        } else {
-            return merge(searchResult, structure);
-        }
-    }
+    /**
+     * Adds a structure element
+     *
+     * @param key string identifier
+     * @return new structure added
+     */
+    JSONElement putStructure(String key);
 
-    public JSONElement putArray(String key, Object... items) {
-        JSONElement search = search(key);
-        if (search == null || search.type != JSONElementType.ARRAY) {
-            JSONElement<Void> element = new JSONElement<>(easyJSONStructure, this, JSONElementType.ARRAY, key, null);
-            for (Object item : items) {
-                if (item instanceof JSONElement) {
-                    JSONElement itemElement = (JSONElement) item;
-                    element.putElement(itemElement.getKey(), itemElement);
-                } else {
-                    element.putPrimitive(item);
-                }
-            }
-            children.add(element);
-            return element;
-        } else {
-            for (Object item : items) {
-                if (item instanceof JSONElement) {
-                    JSONElement itemElement = (JSONElement) item;
-                    search.putElement(itemElement.getKey(), itemElement);
-                } else {
-                    search.putPrimitive(item);
-                }
-            }
-            return search;
-        }
-    }
+    /**
+     * Adds an EasyJSON root structure to this node
+     *
+     * @param key      string identifier
+     * @param easyJSON structure to add
+     * @return new structure added
+     */
+    JSONElement putStructure(String key, EasyJSON easyJSON);
 
-    public boolean elementExists(String... location) {
-        return search(location) != null;
-    }
+    /**
+     * Adds an existing structure node to this node
+     *
+     * @param key       string identifier
+     * @param structure structure to add
+     * @return new structure added
+     */
+    JSONElement putStructure(String key, JSONElement structure);
 
-    public JSONElement search(String... location) {
-        return deepSearch(this, location, 0);
-    }
+    /**
+     * Adds an array node with preset children to this node
+     *
+     * @param key   string identifier
+     * @param items objects to convert to elements and add to the new node
+     * @return new array node added
+     */
+    JSONElement putArray(String key, Object... items);
 
-    private JSONElement deepSearch(JSONElement element, String[] location, int locPosition) {
-        for (int i = 0; locPosition < location.length && i < element.children.size(); i++) {
-            JSONElement child = (JSONElement) element.children.get(i);
-            if (child.key != null) {
-                if (child.key.equals(location[locPosition])) {
-                    if (locPosition == location.length - 1) {
-                        return child;
-                    } else {
-                        return deepSearch(child, location, locPosition + 1);
-                    }
-                }
-            }
-        }
-        return null;
-    }
+    /**
+     * Claims all elements in the EasyJSON structure<br/>
+     * Note: the supplied structure is unchanged
+     *
+     * @param easyJSONStructure structure to add from
+     */
+    void putAll(EasyJSON easyJSONStructure);
 
-    public <T> T valueOf(String... location) {
-        return (T) search(location).getValue();
-    }
+    /**
+     * Claims all child elements of the specified element<br/>
+     * Note: the supplied element is unchanged
+     *
+     * @param jsonElement element to add from
+     */
+    void putAll(JSONElement jsonElement);
 
-    public <T> T valueOf(T defaultValue, String location) {
-        T value = valueOf(location);
-        if (value != null) {
-            return value;
-        } else {
-            return defaultValue;
-        }
-    }
+    /**
+     * may cause duplicate keys, use carefully!
+     *
+     * @param jsonElement node to claim
+     */
+    void claimElement(JSONElement jsonElement);
 
-    public void combine(EasyJSON easyJSONStructure) {
-        combine(easyJSONStructure.getRootNode());
-    }
+    JSONElement merge(JSONElement newElement);
 
-    // overwrites any existing elements with keys
-    public void combine(JSONElement jsonElement) {
-        for (int i = 0; i < jsonElement.children.size(); i++) {
-            putElement((JSONElement) jsonElement.children.get(i));
-        }
-    }
+    /**
+     * Removes an element from a location relative to this node
+     *
+     * @param location search path for the node to remove
+     * @return true if the node was removed
+     */
+    boolean removeElement(String... location);
 
-    // may cause duplicate keys, use carefully!
-    private void claimElement(JSONElement jsonElement) {
-        jsonElement.easyJSONStructure = easyJSONStructure;
-        jsonElement.parent = this;
-        children.add(jsonElement);
-    }
+    /**
+     * @param location search path for a node
+     * @return true if a node exists in the specified location
+     */
+    boolean elementExists(String... location);
 
-    private JSONElement merge(JSONElement newElement, JSONElement oldElement) {
-        newElement.type = oldElement.type;
-        newElement.children = oldElement.children;
-        newElement.value = oldElement.value;
-        return newElement;
-    }
+    /**
+     * Finds a node in a specified location
+     *
+     * @param location search path for the node
+     * @return node found or null
+     */
+    JSONElement search(String... location);
+
+    JSONElement deepSearch(JSONElement element, String[] location, int locPosition);
+
+    /**
+     * Gets and returns the value of a node in a specified location
+     *
+     * @param location search path for the node
+     * @see #search(String...)
+     */
+    Object valueOf(String... location);
 
     @Override
-    public Iterator<JSONElement> iterator() {
-        return children.iterator();
-    }
+    Iterator<JSONElement> iterator();
+
+    @Override
+    String toString();
 }

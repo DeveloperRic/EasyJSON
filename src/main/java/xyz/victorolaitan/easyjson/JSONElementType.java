@@ -1,6 +1,6 @@
 package xyz.victorolaitan.easyjson;
 
-enum JSONElementType {
+public enum JSONElementType {
     PRIMITIVE,
     ARRAY,
     STRUCTURE,
